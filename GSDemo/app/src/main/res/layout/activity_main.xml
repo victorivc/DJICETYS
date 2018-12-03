@@ -54,7 +54,7 @@
             android:id="@+id/config"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Config"
+            android:text="RONDIN 2"
             android:layout_weight="0.9"/>
         <Button
             android:id="@+id/upload"

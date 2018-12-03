@@ -19,6 +19,7 @@ import dji.common.error.DJISDKError;
 import dji.sdk.camera.Camera;
 import dji.sdk.products.Aircraft;
 import dji.sdk.products.HandHeld;
+import dji.sdk.gimbal.*;
 
 public class DJIDemoApplication extends Application {
 

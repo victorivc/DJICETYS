@@ -39,6 +39,7 @@ import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
 import dji.common.camera.SettingsDefinitions;
+import dji.common.camera.SystemState;
 import dji.common.flightcontroller.FlightControllerState;
 import dji.common.mission.waypoint.Waypoint;
 import dji.common.mission.waypoint.WaypointMission;
@@ -76,7 +77,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
     private GoogleMap gMap;
 
     protected DJICodecManager mCodecManager = null;
-
+    private TextView recordingTime;
 
 
     private Button locate, add, clear;
@@ -99,7 +100,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
     public static WaypointMission.Builder waypointMissionBuilder;
     private FlightController mFlightController;
     private WaypointMissionOperator instance;
-    private WaypointMissionFinishedAction mFinishedAction = WaypointMissionFinishedAction.NO_ACTION;
+    private WaypointMissionFinishedAction mFinishedAction = WaypointMissionFinishedAction.GO_HOME;
     private WaypointMissionHeadingMode mHeadingMode = WaypointMissionHeadingMode.AUTO;
 
     @Override
@@ -151,6 +152,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
     }
 
     private void initUI() {
+        mVideoSurface = (TextureView)findViewById(R.id.video_previewer_surface);
 
         locate = (Button) findViewById(R.id.locate);
         add = (Button) findViewById(R.id.add);
@@ -168,6 +170,10 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
         start.setOnClickListener(this);
         stop.setOnClickListener(this);
 
+        if (null != mVideoSurface) {
+            mVideoSurface.setSurfaceTextureListener(this);
+        }
+
     }
 
     @Override
@@ -180,6 +186,10 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
         IntentFilter filter = new IntentFilter();
         filter.addAction(DJIDemoApplication.FLAG_CONNECTION_CHANGE);
         registerReceiver(mReceiver, filter);
+
+        IntentFilter filtercamara = new IntentFilter();
+        filtercamara.addAction(FPVDemoApplication.FLAG_CONNECTION_CHANGE);
+        registerReceiver(mReceiver,filter);
 
         initUI();
 
@@ -198,6 +208,46 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
                 }
             }
         };
+
+        Camera camera = FPVDemoApplication.getCameraInstance();
+
+        if (camera != null) {
+
+            camera.setSystemStateCallback(new SystemState.Callback() {
+                @Override
+                public void onUpdate(SystemState cameraSystemState) {
+                    if (null != cameraSystemState) {
+
+                        int recordTime = cameraSystemState.getCurrentVideoRecordingTimeInSeconds();
+                        int minutes = (recordTime % 3600) / 60;
+                        int seconds = recordTime % 60;
+
+                        final String timeString = String.format("%02d:%02d", minutes, seconds);
+                        final boolean isVideoRecording = cameraSystemState.isRecording();
+
+                        MainActivity.this.runOnUiThread(new Runnable() {
+
+                            @Override
+                            public void run() {
+
+//                                recordingTime.setText(timeString);
+
+                                /*
+                                 * Update recordingTime TextView visibility and mRecordBtn's check state
+                                 */
+                                if (isVideoRecording){
+  //                                  recordingTime.setVisibility(View.VISIBLE);
+                                }else
+                                {
+    //                                recordingTime.setVisibility(View.INVISIBLE);
+                                }
+                            }
+                        });
+                    }
+                }
+            });
+
+        }
     }
 
     protected void onProductChange() {
@@ -296,6 +346,13 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
             }
         }
 
+        BaseProduct productcamara = FPVDemoApplication.getProductInstance();
+        if (productcamara != null && productcamara.isConnected()) {
+            if (productcamara instanceof Aircraft) {
+                mFlightController = ((Aircraft) productcamara).getFlightController();
+            }
+        }
+
         if (mFlightController != null) {
             mFlightController.setStateCallback(new FlightControllerState.Callback() {
 
@@ -335,18 +392,26 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
 
         @Override
         public void onExecutionUpdate(WaypointMissionExecutionEvent executionEvent) {
-            captureAction();
+           captureAction();
         }
 
         @Override
         public void onExecutionStart() {
-            captureAction();
+            //captureAction();
+            startRecord();
         }
 
         @Override
         public void onExecutionFinish(@Nullable final DJIError error) {
-            captureAction();
-            setResultToToast("Execution finished: " + (error == null ? "Success!" : error.getDescription()));
+            //captureAction();
+            add.setEnabled(true);
+            config.setEnabled(true);
+            upload.setEnabled(true);
+            start.setEnabled(true);
+            clear.setEnabled(true);
+            stopRecord();
+
+            //setResultToToast("Execution finished: " + (error == null ? "Success!" : error.getDescription()));
         }
     };
 
@@ -430,7 +495,21 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
                 break;
             }
             case R.id.add:{
-                enableDisableAdd();
+                //enableDisableAdd();
+                if(!waypointList.isEmpty()) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            gMap.clear();
+                        }
+
+                    });
+                    waypointList.clear();
+                    waypointMissionBuilder.waypointList(waypointList);
+                    updateDroneLocation();
+                }
+                Rondin1();
+                configWayPointMission();
                 break;
             }
             case R.id.clear: {
@@ -449,19 +528,48 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
                 break;
             }
             case R.id.config:{
-                showSettingDialog();
+                //showSettingDialog();
+                //configWayPointMission();
+                if(!waypointList.isEmpty()) {
+                    runOnUiThread(new Runnable() {
+                        @Override
+                        public void run() {
+                            gMap.clear();
+                        }
+
+                    });
+                    waypointList.clear();
+                    waypointMissionBuilder.waypointList(waypointList);
+                    updateDroneLocation();
+                }
+                Rondin2();
+                configWayPointMission();
+
                 break;
             }
             case R.id.upload:{
                 uploadWayPointMission();
+                //startRecord();
                 break;
             }
             case R.id.start:{
                 startWaypointMission();
+                add.setEnabled(false);
+                config.setEnabled(false);
+                upload.setEnabled(false);
+                start.setEnabled(false);
+                clear.setEnabled(false);
+
+                //stopRecord();
                 break;
             }
             case R.id.stop:{
                 stopWaypointMission();
+                add.setEnabled(true);
+                config.setEnabled(true);
+                upload.setEnabled(true);
+                start.setEnabled(true);
+                clear.setEnabled(true);
                 break;
             }
             default:
@@ -478,27 +586,13 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
     }
 
     private void enableDisableAdd(){
-        if(!waypointList.isEmpty()) {
-            runOnUiThread(new Runnable() {
-                @Override
-                public void run() {
-                    gMap.clear();
-                }
-
-            });
-            waypointList.clear();
-            waypointMissionBuilder.waypointList(waypointList);
-            updateDroneLocation();
-        }
-        Rondin1();
-    /*
         if (isAdd == false) {
             isAdd = true;
             add.setText("Exit");
         }else{
             isAdd = false;
             add.setText("Add");
-        }*/
+        }
 
     }
 
@@ -729,19 +823,27 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
     }
     //RONDINES
     private void Rondin1(){
+        //INICIO
+        LatLng pos = new LatLng(droneLocationLat, droneLocationLng);
+        markWaypoint(pos);
+        Waypoint mWaypoint0 = new Waypoint(pos.latitude, pos.longitude, altitude);
+        waypointMissionBuilder = new WaypointMission.Builder();
+        waypointList.add(mWaypoint0);
+        waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
+
+
         //CECE
-        String[] latlong =  "32.654545, -115.408427".split(",");
+        String[] latlong =  "32.6545, -115.4084".split(",");
         double latitude = Double.parseDouble(latlong[0]);
         double longitude = Double.parseDouble(latlong[1]);
         LatLng CECE = new LatLng(latitude, longitude);
         markWaypoint(CECE);
         Waypoint mWaypoint = new Waypoint(CECE.latitude, CECE.longitude, altitude);
-        waypointMissionBuilder = new WaypointMission.Builder();
         waypointList.add(mWaypoint);
         waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
 
         //CAT
-        latlong="32.654421, -115.406887".split(",");
+        latlong="32.6544,-115.4068".split(",");
         latitude = Double.parseDouble(latlong[0]);
         longitude = Double.parseDouble(latlong[1]);
         LatLng LICENCIATURA = new LatLng(latitude, longitude);
@@ -751,20 +853,97 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
         waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
 
         //CEID
-        latlong="32.655090, -115.406857".split(",");
+        latlong="32.6550,-115.4068".split(",");
         latitude = Double.parseDouble(latlong[0]);
         longitude = Double.parseDouble(latlong[1]);
         LatLng CEID = new LatLng(latitude, longitude);
         markWaypoint(CEID);
         Waypoint mWaypoint3 = new Waypoint(CEID.latitude, CEID.longitude, altitude);
-        waypointList.add(mWaypoint2);
+        waypointList.add(mWaypoint3);
         waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
 
     }
     private void Rondin2(){
+        //INICIO
+        LatLng pos = new LatLng(droneLocationLat, droneLocationLng);
+        markWaypoint(pos);
+        Waypoint mWaypoint0 = new Waypoint(pos.latitude, pos.longitude, altitude);
+        waypointMissionBuilder = new WaypointMission.Builder();
+        waypointList.add(mWaypoint0);
+        waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
 
+
+        //Informatica
+        String[] latlong =  "32.655360,-115.408798".split(",");
+        double latitude = Double.parseDouble(latlong[0]);
+        double longitude = Double.parseDouble(latlong[1]);
+        LatLng Info = new LatLng(latitude, longitude);
+        markWaypoint(Info);
+        Waypoint mWaypoint = new Waypoint(Info.latitude, Info.longitude, altitude);
+        waypointList.add(mWaypoint);
+        waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
+
+        //Labs
+        latlong="32.655396,-115.408125".split(",");
+        latitude = Double.parseDouble(latlong[0]);
+        longitude = Double.parseDouble(latlong[1]);
+        LatLng Labs = new LatLng(latitude, longitude);
+        markWaypoint(Labs);
+        Waypoint mWaypoint2 = new Waypoint(Labs.latitude, Labs.longitude, altitude);
+        waypointList.add(mWaypoint2);
+        waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
+
+        //Salas
+        latlong="32.655093,-115.408015".split(",");
+        latitude = Double.parseDouble(latlong[0]);
+        longitude = Double.parseDouble(latlong[1]);
+        LatLng Salas = new LatLng(latitude, longitude);
+        markWaypoint(Salas);
+        Waypoint mWaypoint3 = new Waypoint(Salas.latitude, Salas.longitude, altitude);
+        waypointList.add(mWaypoint3);
+        waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
     }
     private void Rondin3(){
+
+    }
+
+    // Method for starting recording
+    private void startRecord(){
+
+        final Camera camera = FPVDemoApplication.getCameraInstance();
+        if (camera != null) {
+            camera.startRecordVideo(new CommonCallbacks.CompletionCallback(){
+                @Override
+                public void onResult(DJIError djiError)
+                {
+                    if (djiError == null) {
+                        showToast("Record video: success");
+                    }else {
+                        showToast(djiError.getDescription());
+                    }
+                }
+            }); // Execute the startRecordVideo API
+        }
+    }
+
+    // Method for stopping recording
+    private void stopRecord(){
+
+        Camera camera = FPVDemoApplication.getCameraInstance();
+        if (camera != null) {
+            camera.stopRecordVideo(new CommonCallbacks.CompletionCallback(){
+
+                @Override
+                public void onResult(DJIError djiError)
+                {
+                    if(djiError == null) {
+                        showToast("Stop recording: success");
+                    }else {
+                        showToast(djiError.getDescription());
+                    }
+                }
+            }); // Execute the stopRecordVideo API
+        }
 
     }
 }
