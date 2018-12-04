@@ -38,6 +38,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ConcurrentHashMap;
 
+
+
 import dji.common.camera.SettingsDefinitions;
 import dji.common.camera.SystemState;
 import dji.common.flightcontroller.FlightControllerState;
@@ -563,6 +565,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
 
 
               //  startRecord();
+                Rondin3();
                 break;
             }
             case R.id.start:{
@@ -847,6 +850,8 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
         WaypointAction wp = new WaypointAction(GIMBAL_PITCH,-90);
         WaypointAction cam = new WaypointAction(START_RECORD,0);
         WaypointAction camfin = new WaypointAction(STOP_RECORD, 0);
+
+
         //CECE
         String[] latlong =  "32.6545, -115.4084".split(",");
         double latitude = Double.parseDouble(latlong[0]);
@@ -944,7 +949,51 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
         waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
     }
     private void Rondin3(){
+        WaypointAction wp = new WaypointAction(GIMBAL_PITCH,-90);
+        WaypointAction cam = new WaypointAction(START_RECORD,0);
+        WaypointAction camfin = new WaypointAction(STOP_RECORD, 0);
 
+
+        //Biblioteca
+        String[] latlong =  "32.655030,-115.409535".split(",");
+        double latitude = Double.parseDouble(latlong[0]);
+        double longitude = Double.parseDouble(latlong[1]);
+        LatLng Info = new LatLng(latitude, longitude);
+        markWaypoint(Info);
+        Waypoint mWaypoint = new Waypoint(Info.latitude, Info.longitude, altitude);
+        mWaypoint.addAction(wp);
+        mWaypoint.addAction(cam);
+        waypointMissionBuilder = new WaypointMission.Builder();
+        waypointList.add(mWaypoint);
+        waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
+
+        //Auditorio
+        latlong="32.654574,-115.409455".split(",");
+        latitude = Double.parseDouble(latlong[0]);
+        longitude = Double.parseDouble(latlong[1]);
+        LatLng Labs = new LatLng(latitude, longitude);
+        markWaypoint(Labs);
+        Waypoint mWaypoint2 = new Waypoint(Labs.latitude, Labs.longitude, altitude);
+        waypointList.add(mWaypoint2);
+        waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
+
+        //CASE
+        latlong="32.654956,-115.410225".split(",");
+        latitude = Double.parseDouble(latlong[0]);
+        longitude = Double.parseDouble(latlong[1]);
+        LatLng Salas = new LatLng(latitude, longitude);
+        markWaypoint(Salas);
+        Waypoint mWaypoint3 = new Waypoint(Salas.latitude, Salas.longitude, altitude);
+        waypointList.add(mWaypoint3);
+        waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
+
+        //FINAL
+        LatLng pos2 = new LatLng(droneLocationLat, droneLocationLng);
+        markWaypoint(pos2);
+        Waypoint mWaypoint4 = new Waypoint(pos2.latitude, pos2.longitude, altitude);
+        mWaypoint4.addAction(camfin);
+        waypointList.add(mWaypoint4);
+        waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
     }
 
     // Method for starting recording
