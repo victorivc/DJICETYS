@@ -42,6 +42,7 @@ import dji.common.camera.SettingsDefinitions;
 import dji.common.camera.SystemState;
 import dji.common.flightcontroller.FlightControllerState;
 import dji.common.mission.waypoint.Waypoint;
+import dji.common.mission.waypoint.WaypointAction;
 import dji.common.mission.waypoint.WaypointMission;
 import dji.common.mission.waypoint.WaypointMissionDownloadEvent;
 import dji.common.mission.waypoint.WaypointMissionExecutionEvent;
@@ -51,6 +52,7 @@ import dji.common.mission.waypoint.WaypointMissionHeadingMode;
 import dji.common.mission.waypoint.WaypointMissionUploadEvent;
 import dji.common.useraccount.UserAccountState;
 import dji.common.util.CommonCallbacks;
+import dji.midware.data.model.P3.DataFlycUploadWayPointMissionMsg;
 import dji.sdk.base.BaseProduct;
 import dji.sdk.camera.VideoFeeder;
 import dji.sdk.codec.DJICodecManager;
@@ -66,6 +68,9 @@ import dji.common.product.Model;
 import dji.sdk.products.Aircraft;
 import dji.sdk.products.HandHeld;
 
+import static dji.midware.data.model.P3.DataFlycUploadWayPointMissionMsg.*;
+
+import static dji.common.mission.waypoint.WaypointActionType.*;
 
 
 public class MainActivity extends FragmentActivity implements View.OnClickListener, GoogleMap.OnMapClickListener, OnMapReadyCallback,TextureView.SurfaceTextureListener {
@@ -100,7 +105,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
     public static WaypointMission.Builder waypointMissionBuilder;
     private FlightController mFlightController;
     private WaypointMissionOperator instance;
-    private WaypointMissionFinishedAction mFinishedAction = WaypointMissionFinishedAction.GO_HOME;
+    private WaypointMissionFinishedAction mFinishedAction = WaypointMissionFinishedAction.AUTO_LAND;
     private WaypointMissionHeadingMode mHeadingMode = WaypointMissionHeadingMode.AUTO;
 
     @Override
@@ -392,13 +397,16 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
 
         @Override
         public void onExecutionUpdate(WaypointMissionExecutionEvent executionEvent) {
-           captureAction();
+          // captureAction();
+            //startRecord();
         }
 
         @Override
         public void onExecutionStart() {
             //captureAction();
-            startRecord();
+            //startRecord();
+
+
         }
 
         @Override
@@ -409,7 +417,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
             upload.setEnabled(true);
             start.setEnabled(true);
             clear.setEnabled(true);
-            stopRecord();
+           // stopRecord();
 
             //setResultToToast("Execution finished: " + (error == null ? "Success!" : error.getDescription()));
         }
@@ -510,6 +518,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
                 }
                 Rondin1();
                 configWayPointMission();
+                uploadWayPointMission();
                 break;
             }
             case R.id.clear: {
@@ -544,12 +553,16 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
                 }
                 Rondin2();
                 configWayPointMission();
+                uploadWayPointMission();
+                stopRecord();
 
                 break;
             }
             case R.id.upload:{
-                uploadWayPointMission();
-                //startRecord();
+               // uploadWayPointMission();
+
+
+              //  startRecord();
                 break;
             }
             case R.id.start:{
@@ -824,14 +837,16 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
     //RONDINES
     private void Rondin1(){
         //INICIO
-        LatLng pos = new LatLng(droneLocationLat, droneLocationLng);
+        /*LatLng pos = new LatLng(droneLocationLat, droneLocationLng);
         markWaypoint(pos);
         Waypoint mWaypoint0 = new Waypoint(pos.latitude, pos.longitude, altitude);
         waypointMissionBuilder = new WaypointMission.Builder();
         waypointList.add(mWaypoint0);
         waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
-
-
+*/
+        WaypointAction wp = new WaypointAction(GIMBAL_PITCH,-90);
+        WaypointAction cam = new WaypointAction(START_RECORD,0);
+        WaypointAction camfin = new WaypointAction(STOP_RECORD, 0);
         //CECE
         String[] latlong =  "32.6545, -115.4084".split(",");
         double latitude = Double.parseDouble(latlong[0]);
@@ -839,6 +854,9 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
         LatLng CECE = new LatLng(latitude, longitude);
         markWaypoint(CECE);
         Waypoint mWaypoint = new Waypoint(CECE.latitude, CECE.longitude, altitude);
+        mWaypoint.addAction(wp);
+        mWaypoint.addAction(cam);
+        waypointMissionBuilder = new WaypointMission.Builder();
         waypointList.add(mWaypoint);
         waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
 
@@ -862,15 +880,26 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
         waypointList.add(mWaypoint3);
         waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
 
+        //Final
+        LatLng posFinal = new LatLng(droneLocationLat, droneLocationLng);
+        markWaypoint(posFinal);
+        Waypoint mWaypointFin = new Waypoint(posFinal.latitude, posFinal.longitude, altitude);
+        mWaypointFin.addAction(camfin);
+        waypointList.add(mWaypointFin);
+        waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
+
     }
     private void Rondin2(){
         //INICIO
-        LatLng pos = new LatLng(droneLocationLat, droneLocationLng);
+       /* LatLng pos = new LatLng(droneLocationLat, droneLocationLng);
         markWaypoint(pos);
         Waypoint mWaypoint0 = new Waypoint(pos.latitude, pos.longitude, altitude);
         waypointMissionBuilder = new WaypointMission.Builder();
         waypointList.add(mWaypoint0);
-        waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
+        waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());*/
+        WaypointAction wp = new WaypointAction(GIMBAL_PITCH,-90);
+        WaypointAction cam = new WaypointAction(START_RECORD,0);
+        WaypointAction camfin = new WaypointAction(STOP_RECORD, 0);
 
 
         //Informatica
@@ -880,6 +909,9 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
         LatLng Info = new LatLng(latitude, longitude);
         markWaypoint(Info);
         Waypoint mWaypoint = new Waypoint(Info.latitude, Info.longitude, altitude);
+        mWaypoint.addAction(wp);
+        mWaypoint.addAction(cam);
+        waypointMissionBuilder = new WaypointMission.Builder();
         waypointList.add(mWaypoint);
         waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
 
@@ -902,6 +934,14 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
         Waypoint mWaypoint3 = new Waypoint(Salas.latitude, Salas.longitude, altitude);
         waypointList.add(mWaypoint3);
         waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
+
+        //FINAL
+        LatLng pos2 = new LatLng(droneLocationLat, droneLocationLng);
+        markWaypoint(pos2);
+        Waypoint mWaypoint4 = new Waypoint(pos2.latitude, pos2.longitude, altitude);
+        mWaypoint4.addAction(camfin);
+        waypointList.add(mWaypoint4);
+        waypointMissionBuilder.waypointList(waypointList).waypointCount(waypointList.size());
     }
     private void Rondin3(){
 
@@ -910,7 +950,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
     // Method for starting recording
     private void startRecord(){
 
-        final Camera camera = FPVDemoApplication.getCameraInstance();
+        final Camera camera = DJIDemoApplication.getCameraInstance();
         if (camera != null) {
             camera.startRecordVideo(new CommonCallbacks.CompletionCallback(){
                 @Override
@@ -929,7 +969,7 @@ public class MainActivity extends FragmentActivity implements View.OnClickListen
     // Method for stopping recording
     private void stopRecord(){
 
-        Camera camera = FPVDemoApplication.getCameraInstance();
+        Camera camera = DJIDemoApplication.getCameraInstance();
         if (camera != null) {
             camera.stopRecordVideo(new CommonCallbacks.CompletionCallback(){
 
